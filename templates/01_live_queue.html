@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Queueing Theory · Features awaiting testing</title>
+  <style>
+    :root { color-scheme: light dark; --background:light-dark(#fafbf8,#141b17); --foreground:light-dark(#19382c,#e7eee9); --card:light-dark(#eef3ed,#202e25); --card-foreground:var(--foreground); --muted-foreground:light-dark(#526259,#a8b9ae); --primary:var(--foreground); --primary-foreground:var(--background); --border:light-dark(#becbc0,#43564a); --viz-series-1:light-dark(#28724f,#72c99b); --font-size-base:16px; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:clamp(16px,4vw,48px); background:var(--background); color:var(--foreground); font:400 16px/1.5 system-ui,sans-serif; }
+    main { max-width:760px; margin:auto; }
+    h1 { font-size:24px; font-weight:500; margin:0 0 8px; }
+    p { margin:8px 0 24px; }
+    h2 { font-size:20px; font-weight:500; margin:0 0 16px; }
+    .text-small { font-size:13px; }
+    .text-muted { color:var(--muted-foreground); }
+    .tabular-nums { font-variant-numeric:tabular-nums; }
+    .viz-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); gap:12px; }
+    .card { padding:16px; border-radius:12px; background:var(--card); color:var(--card-foreground); }
+    .viz-stat-value { font-size:30px; font-weight:500; }
+    .viz-row, .viz-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+    .btn { font:inherit; color:var(--foreground); background:transparent; border:1px solid var(--border); border-radius:8px; padding:8px 14px; min-height:44px; cursor:pointer; }
+    .btn-primary { color:var(--primary-foreground); background:var(--primary); border-color:transparent; }
+    .btn:disabled { opacity:.5; cursor:default; }
+    .form-label { display:grid; gap:5px; }
+    .form-select { font:inherit; padding:8px; min-height:44px; border:1px solid var(--border); border-radius:8px; color:var(--foreground); background:var(--background); }
+    .form-range { width:100%; accent-color:var(--viz-series-1); min-height:30px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    footer { margin-top:28px; color:var(--muted-foreground); font-size:13px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Queueing Theory / Experiment 01</h1>
+  <p>Already implemented features arrive for testing. Watch the waiting queue and the development spend tied up in it.</p>
+<!-- LIVE_FRAGMENT_START -->
+<div id="feature-testing-queue">
+  <style>
+    #feature-testing-queue { color:var(--foreground); }
+    #feature-testing-queue .fq-gap { margin-top:18px; }
+    #feature-testing-queue .fq-labels { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    #feature-testing-queue .fq-queue { display:flex; flex-wrap:wrap; align-content:flex-start; gap:5px; min-height:95px; margin-top:14px; }
+    #feature-testing-queue .fq-feature { width:18px; height:24px; background:var(--viz-series-1); opacity:.65; }
+    #feature-testing-queue .fq-empty { align-self:center; color:var(--muted-foreground); }
+    #feature-testing-queue .fq-detail { min-height:44px; margin-top:8px; }
+    #feature-testing-queue .fq-progress { height:3px; background:color-mix(in srgb,var(--foreground) 10%,transparent); }
+    #feature-testing-queue .fq-progress-fill { height:100%; width:0; background:var(--viz-series-1); }
+  </style>
+  <h2>Features awaiting testing</h2>
+  <div class="text-small text-muted" data-role="assumptions"></div>
+  <div class="viz-grid fq-gap">
+    <div class="card viz-stat">
+      <div>Waiting features</div>
+      <div class="viz-stat-value tabular-nums" data-role="count">0</div>
+    </div>
+    <div class="card viz-stat">
+      <div>Development spend tied up</div>
+      <div class="viz-stat-value tabular-nums" data-role="money">€0.00</div>
+    </div>
+  </div>
+  <div class="fq-labels fq-gap text-small">
+    <span>Each square = 1 waiting feature</span>
+    <span data-role="cost-label"></span>
+  </div>
+  <div class="fq-queue" data-role="queue" role="img" aria-label="No features awaiting testing"></div>
+  <div class="text-small text-muted" data-role="overflow" hidden></div>
+  <div class="fq-detail tabular-nums" data-role="daily-detail">Before the first working day.</div>
+  <div class="fq-gap">
+    <div class="fq-labels">
+      <label for="fq-day" class="form-label">Working day <span class="sr-only">slider</span></label>
+      <output for="fq-day" class="tabular-nums" data-role="day-label" aria-live="off">0</output>
+    </div>
+    <input id="fq-day" class="form-range" type="range" min="0" max="500" step="1" value="0">
+    <div class="fq-progress" aria-hidden="true"><div class="fq-progress-fill" data-role="progress"></div></div>
+  </div>
+  <div class="viz-controls fq-gap">
+    <button type="button" class="btn btn-primary" data-role="play">Play</button>
+    <button type="button" class="btn" data-role="step">Next day</button>
+    <label class="form-label">Playback speed
+      <select class="form-select" data-role="speed">
+        <option value="1000">1 day / second</option>
+        <option value="250" selected>4 days / second</option>
+        <option value="83">12 days / second</option>
+      </select>
+    </label>
+  </div>
+  <div class="sr-only" aria-live="polite" data-role="announcement"></div>
+  <script type="application/json" data-role="model-data">__QUEUE_DATA__</script>
+  <script>
+  (() => {
+    const root = document.getElementById("feature-testing-queue");
+    const el = role => root.querySelector('[data-role="' + role + '"]');
+    const data = JSON.parse(el("model-data").textContent);
+    const slider = root.querySelector("#fq-day");
+    const euro = cents => new Intl.NumberFormat("en-IE", {
+      style:"currency", currency:data.currency, minimumFractionDigits:2
+    }).format(cents / 100);
+    let day = 0;
+    let timer = null;
+    let lastRenderedDay = 0;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    slider.max = data.days;
+    el("assumptions").textContent = "Fixed capacity: " + data.capacity + " features/day · Arrivals: "
+      + (data.variation ? (data.capacity - data.variation) + " or " + (data.capacity + data.variation) + " (50% each)"
+        : data.capacity + " every day") + " · Seed " + data.seed;
+    el("cost-label").textContent = euro(data.feature_cost_cents) + " / feature";
+
+    function announce() {
+      el("announcement").textContent = "Day " + day + ": " + data.backlog[day]
+        + " features awaiting testing; " + euro(data.bound_cost_cents[day]) + " in development spend.";
+    }
+    function render() {
+      const count = data.backlog[day];
+      const queue = el("queue");
+      queue.replaceChildren();
+      if (count === 0) {
+        const empty = document.createElement("span");
+        empty.className = "fq-empty";
+        empty.textContent = "Queue empty";
+        queue.append(empty);
+      }
+      for (let i = 0; i < Math.min(count, 120); i++) {
+        const feature = document.createElement("span");
+        feature.className = "fq-feature";
+        feature.setAttribute("aria-hidden", "true");
+        queue.append(feature);
+      }
+      queue.setAttribute("aria-label", count + " features awaiting testing, " + euro(data.bound_cost_cents[day]));
+      el("overflow").hidden = count <= 120;
+      el("overflow").textContent = "First 120 shown · " + (count - 120) + " additional features waiting";
+      el("count").textContent = count.toLocaleString();
+      el("money").textContent = euro(data.bound_cost_cents[day]);
+      el("day-label").textContent = day + " / " + data.days;
+      slider.value = day;
+      el("progress").style.width = (100 * day / data.days) + "%";
+      el("step").disabled = day === data.days;
+      if (day > 0) {
+        const change = count - data.backlog[day - 1];
+        el("daily-detail").textContent = data.arrivals[day - 1] + " arrived · " + data.tested[day - 1]
+          + " tested · Queue " + (change > 0 ? "+" : "") + change
+          + (data.tested[day - 1] < data.capacity ? " · " + (data.capacity - data.tested[day - 1]) + " unused testing slots" : "");
+      } else {
+        el("daily-detail").textContent = "Before the first working day.";
+      }
+      if (day !== lastRenderedDay && !reducedMotion.matches && count > 0 && queue.animate) {
+        queue.animate([{transform:"translateY(3px)"}, {transform:"translateY(0)"}], {duration:140});
+      }
+      lastRenderedDay = day;
+    }
+    function pause(shouldAnnounce = true) {
+      if (timer !== null) window.clearInterval(timer);
+      timer = null;
+      el("play").textContent = day === data.days ? "Replay" : "Play";
+      if (shouldAnnounce) announce();
+    }
+    function start() {
+      if (day === data.days) day = 0;
+      render();
+      el("play").textContent = "Pause";
+      timer = window.setInterval(() => {
+        day = Math.min(data.days, day + 1);
+        render();
+        if (day === data.days) pause();
+      }, Number(el("speed").value));
+    }
+    el("play").addEventListener("click", () => timer === null ? start() : pause());
+    el("step").addEventListener("click", () => {
+      pause(false);
+      day = Math.min(data.days, day + 1);
+      render();
+      pause();
+    });
+    slider.addEventListener("input", () => {
+      pause(false);
+      day = Number(slider.value);
+      render();
+      pause();
+    });
+    el("speed").addEventListener("change", () => {
+      if (timer !== null) { pause(false); start(); }
+    });
+    document.addEventListener("visibilitychange", () => { if (document.hidden) pause(false); });
+    render();
+  })();
+  </script>
+</div>
+<!-- LIVE_FRAGMENT_END -->
+  <footer>End-of-day snapshots. All arrivals occur before testing. Completed features are ready to sell; testing does not itself recover cash. The amount shown is paid development cost of waiting features, not lost revenue. Synthetic data.</footer>
+</main>
+</body>
+</html>
