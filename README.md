@@ -12,17 +12,19 @@ Requires Python 3.10 or newer. From this directory:
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-python scripts/01_balanced_capacity.py --live --feature-cost 1000
+python scripts/01_balanced_capacity.py --live --feature-cost 1000 --output-dir outputs/local
 ```
 
 On Windows, activate with `.venv\Scripts\activate` instead. The Python script opens
-a live player in your browser. Press **Play**, advance one day at a time, or use
-the day slider to inspect an earlier point. Playback speed changes only how fast
+a live player in your browser. Press **Play**, advance one phase at a time, or use
+the day slider to jump to the start of a day. Playback speed changes only how fast
 you watch; it does not change the testing capacity or arrival process.
 
 The player shows the number of features awaiting testing and their already-paid
 development cost. It works offline, with no server or external JavaScript libraries.
-If no browser opens, open `figures/01_live_queue.html` manually. Omit `--live` on a
+If no browser opens, open `outputs/local/figures/01_live_queue.html` manually.
+The repository also includes a ready-made player at `figures/01_live_queue.html`.
+Omit `--live` on a
 headless machine; the same HTML, PNG/SVG figures and CSV/JSON results are still saved.
 
 ## 01 — Balanced capacity, unstable queue
@@ -32,8 +34,9 @@ headless machine; the same HTML, PNG/SVG figures and CSV/JSON results are still 
 ![Fixed capacity and fluctuating feature arrivals](figures/01_balanced_capacity.png)
 
 The testing department can complete **10 features per working day**. Every morning,
-either **8 or 12** features arrive, with equal probability, independently of previous
-days. These features have already been implemented and their development cost paid.
+**8, 9, 10, 11, or 12** features arrive, each with **20% probability**, independently
+of previous days. This is a discrete uniform distribution with mean 10. These
+features have already been implemented and their development cost paid.
 All features require the same testing effort. All arrivals occur before that day's
 testing. The queue starts empty. Unfinished features carry over without a capacity
 limit; features are not discarded, cancelled or abandoned.
@@ -41,6 +44,12 @@ limit; features are not discarded, cancelled or abandoned.
 The comparison case receives exactly 10 features every day, with the same capacity.
 Its end-of-day backlog remains zero. The model describes one aggregate testing
 department, not a particular employee or a detailed multi-server system.
+
+The original two-point arrival law (8 or 12 with 50% probability each) remains
+available as `--arrival-distribution two-point`. Uniform 8–12 arrivals have variance
+2; the original two-point law has variance 4 (in squared feature counts). Both have
+mean 10, but changing the law also changes the amount of variability and therefore
+the size of the expected backlog. Neither law is fitted to actual department data.
 
 For end-of-day backlog `Q`, arrivals `A`, and capacity `C`:
 
@@ -74,10 +83,16 @@ development costs disappear from that accounting.
 
 ### What the figure shows
 
-- **Live player:** one reproducible path of features and tied-up development spend.
-  Each square represents one waiting feature; very large queues show 120 squares
-  plus an explicit count of the remaining features. The Python-computed path is
-  replayed as end-of-day snapshots, not simulated again in JavaScript.
+- **Live player:** numbered features move from incoming work into the testing queue,
+  then to tested work, with the oldest features tested first. Each day has three
+  visual phases: start of day, arrivals joining, and testing complete. Counts and
+  development spend update at every phase. Incoming features enter the queue-cost
+  total when they join the queue. Tested work is labeled **today**, not cumulative.
+  Up to 60 tiles appear in each area; any additional features are explicitly counted.
+  Python supplies all counts, costs and feature identities; the browser replays them.
+- **Live history:** queue length at the end of each completed day. It updates after
+  testing, excludes future days, and uses fixed axes so scaling cannot exaggerate
+  changes. The three phases illustrate event order, not intra-day service times.
 - **Top:** one reproducible random path, compared with regular arrivals.
 - **Bottom:** exact expected backlog, independently checked against 10,000
   simulated paths. The shaded region is the 10th–90th percentile range of
@@ -122,6 +137,9 @@ python scripts/01_balanced_capacity.py
 # Open the live player, with a different fixed development cost per feature.
 python scripts/01_balanced_capacity.py --live --feature-cost 2500
 
+# Reproduce the original 8-or-12 arrival law, including its seed-42 sample path.
+python scripts/01_balanced_capacity.py --arrival-distribution two-point --output-dir outputs/two-point
+
 # Longer horizon; save separately to retain the reference results.
 python scripts/01_balanced_capacity.py --days 2000 --output-dir outputs/long-run
 
@@ -133,10 +151,15 @@ python scripts/01_balanced_capacity.py --seed 123 --output-dir outputs/seed-123
 
 # Check accounting, clearing, enumeration and simulation vs exact expectation.
 python -m unittest discover -s tests -v
+
+# Optional developer check of player controls and displayed data (requires Node.js).
+node tests/check_live_player.cjs
 ```
 
 `--capacity` changes the fixed daily capacity and the mean arrivals together.
-`--variation` changes the equally likely deviations around that mean. This script
+`--variation` sets the maximum deviation around that mean. With `uniform`, every
+integer in the inclusive range is equally likely; with `two-point`, only its two
+endpoints can occur. `--variation 0` produces regular arrivals in either case. This script
 always models **balanced expected rates**. A capacity-reserve comparison is a
 separate future experiment, not a hidden change to this one.
 
@@ -153,19 +176,33 @@ separate future experiment, not a hidden change to this one.
 
 ### Why the expected queue grows
 
-Let the arrival deviation be `v`, so each day's change before reflection is
-`+v` or `-v` with equal probability. Above zero those changes cancel in
-expectation. At zero the negative step is prevented: a backlog cannot be negative.
-Consequently:
+Let `unused = max(0, C - Q[d] - A[d+1])`. The queue cannot be negative, so any
+service capacity in excess of available work is unused. The daily accounting is:
 
 ```text
-E[Q[d+1]] - E[Q[d]] = (v / 2) * P(Q[d] = 0)
+Q[d+1] = Q[d] + A[d+1] - C + unused
+E[Q[d+1]] - E[Q[d]] = E[unused]       because E[A] = C
 ```
 
-`exact_expectation()` propagates the probabilities of every reachable queue state
-for each day, starting with probability one at zero. It does not use the
+For uniform 8–12 arrivals and capacity 10, unused capacity can occur when the
+previous backlog is 0 or 1. In this specific case:
+
+```text
+E[unused] = 0.6 * P(Q[d] = 0) + 0.2 * P(Q[d] = 1)
+```
+
+For the original two-point model, with deviation `v > 0` and an initially empty
+queue, only multiples of `v` are reachable. Its expression is instead
+`E[unused] = (v / 2) * P(Q[d] = 0)`.
+
+`exact_expectation()` propagates the probabilities of every reachable integer
+queue state for each day, starting with probability one at zero. It convolves the
+state probabilities with the selected arrival-deviation distribution, then adds
+all probability assigned to negative backlog into zero. It does not use the
 steady-state formula `rho / (1 - rho)`, which is inapplicable at `rho = 1`.
-Tests independently enumerate all 8/12 arrival sequences over short horizons.
+Tests independently enumerate all arrival sequences over short horizons for both
+laws, check simulation against the exact calculation, and track FIFO feature
+identities and development costs through all three live phases.
 
 ### References
 

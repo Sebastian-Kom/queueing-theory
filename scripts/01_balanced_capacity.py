@@ -83,28 +83,51 @@ def simulate_queue(arrivals: np.ndarray, capacity: int) -> dict[str, np.ndarray]
     }
 
 
-def exact_expectation(days: int, variation: int) -> tuple[np.ndarray, np.ndarray]:
+def arrival_probabilities(capacity: int, variation: int, distribution: str) -> dict[int, float]:
+    """The two supported arrival laws both have mean equal to daily capacity."""
+    if distribution not in ("uniform", "two-point"):
+        raise ValueError("arrival distribution must be uniform or two-point")
+    if variation == 0:
+        return {capacity: 1.0}
+    if distribution == "two-point":
+        return {capacity - variation: 0.5, capacity + variation: 0.5}
+    return {count: 1 / (2 * variation + 1)
+            for count in range(capacity - variation, capacity + variation + 1)}
+
+
+def sample_arrivals(rng: np.random.Generator, size: int, capacity: int,
+                    variation: int, distribution: str) -> np.ndarray:
+    if distribution == "two-point":
+        # Preserve the original experiment's random stream for this option.
+        return capacity + variation * (2 * rng.integers(0, 2, size) - 1)
+    return rng.integers(capacity - variation, capacity + variation + 1, size)
+
+
+def exact_expectation(days: int, variation: int,
+                      distribution: str = "uniform") -> tuple[np.ndarray, np.ndarray]:
     """Propagate the exact state probabilities of the reflected random walk.
 
-    For positive variation, state k means a backlog of k * variation features.
-    Above zero, the next state is k-1 or k+1, each with probability 1/2.
-    At zero, it stays at zero or rises to one. No stationarity is assumed.
-    Complexity is O(days**2); the default 500-day horizon is small.
+    State k is a backlog of k features. Convolve its probability with the
+    arrival-deviation law, then fold all negative states into zero. This
+    handles both bounded uniform and two-point arrivals without assuming
+    stationarity. For fixed variation, complexity is O(days**2).
     """
     if days < 0 or variation < 0:
         raise ValueError("days and variation must be non-negative")
+    deviations = arrival_probabilities(0, variation, distribution)
     mean = np.zeros(days + 1)
     empty_probability = np.ones(days + 1)
     if variation == 0:
         return mean, empty_probability
     probability = np.array([1.0])
+    weights = np.zeros(2 * variation + 1)
+    for deviation, chance in deviations.items():
+        weights[deviation + variation] = chance
     for day in range(1, days + 1):
-        next_probability = np.zeros(len(probability) + 1)
-        next_probability[1:] += 0.5 * probability  # a busy arrival day
-        next_probability[:-2] += 0.5 * probability[1:]  # a quiet day
-        next_probability[0] += 0.5 * probability[0]  # unused capacity
-        probability = next_probability
-        states = variation * np.arange(len(probability))
+        unrestricted = np.convolve(probability, weights)
+        probability = unrestricted[variation:].copy()
+        probability[0] += unrestricted[:variation].sum()
+        states = np.arange(len(probability))
         mean[day] = np.dot(states, probability)
         empty_probability[day] = probability[0]
     return mean, empty_probability
@@ -117,6 +140,7 @@ def run_experiment(
     variation: int = 2,
     seed: int = 42,
     feature_cost: str | float | Decimal = "1000",
+    arrival_distribution: str = "uniform",
 ) -> dict:
     """Simulate one illustrative run and an independent Monte Carlo ensemble."""
     if days < 1 or runs < 2 or capacity < 1 or not 0 <= variation <= capacity:
@@ -124,24 +148,25 @@ def run_experiment(
     if seed < 0:
         raise ValueError("seed must be non-negative")
     unit_cost_cents = cost_in_cents(feature_cost)
+    law = arrival_probabilities(capacity, variation, arrival_distribution)
 
     # Separate streams keep the illustrative path unchanged when runs changes.
     sample_seed, ensemble_seed = np.random.SeedSequence(seed).spawn(2)
     sample_rng = np.random.default_rng(sample_seed)
     rng = np.random.default_rng(ensemble_seed)
-    sample_arrivals = capacity + variation * (2 * sample_rng.integers(0, 2, days) - 1)
-    sample = simulate_queue(sample_arrivals, capacity)
-    sample.update(feature_costs(sample_arrivals, sample, unit_cost_cents))
+    illustrative_arrivals = sample_arrivals(sample_rng, days, capacity, variation, arrival_distribution)
+    sample = simulate_queue(illustrative_arrivals, capacity)
+    sample.update(feature_costs(illustrative_arrivals, sample, unit_cost_cents))
     regular = simulate_queue(np.full(days, capacity, dtype=np.int64), capacity)
 
     backlogs = np.zeros((runs, days + 1), dtype=np.int64)
     total_arrivals = 0
     for day in range(days):
-        arrivals = capacity + variation * (2 * rng.integers(0, 2, runs) - 1)
+        arrivals = sample_arrivals(rng, runs, capacity, variation, arrival_distribution)
         total_arrivals += int(arrivals.sum())
         backlogs[:, day + 1] = np.maximum(0, backlogs[:, day] + arrivals - capacity)
 
-    exact_mean, exact_empty = exact_expectation(days, variation)
+    exact_mean, exact_empty = exact_expectation(days, variation, arrival_distribution)
     lower, upper = np.quantile(backlogs, [0.1, 0.9], axis=0)
     mean = backlogs.mean(axis=0)
     sem = backlogs.std(axis=0, ddof=1) / np.sqrt(runs)
@@ -149,8 +174,10 @@ def run_experiment(
     return {
         "parameters": {"days": days, "runs": runs, "capacity": capacity,
                        "variation": variation, "seed": seed,
+                       "arrival_distribution": arrival_distribution,
                        "feature_cost_cents": unit_cost_cents, "currency": "EUR"},
-        "sample_arrivals": sample_arrivals,
+        "arrival_probabilities": law,
+        "sample_arrivals": illustrative_arrivals,
         "sample": sample,
         "regular": regular,
         "mean": mean,
@@ -198,9 +225,9 @@ def write_results(result: dict, directory: Path) -> None:
         "experiment": "01_balanced_capacity",
         "parameters": p,
         "model": "discrete-time batch arrivals; equal effort; all arrivals before daily service",
-        "arrival_probabilities": {str(p["capacity"] - p["variation"]): 0.5,
-                                  str(p["capacity"] + p["variation"]): 0.5}
-        if p["variation"] else {str(p["capacity"]): 1.0},
+        "arrival_probabilities": result["arrival_probabilities"],
+        "arrival_variance": float(sum(chance * (count - p["capacity"])**2
+                                       for count, chance in result["arrival_probabilities"].items())),
         "nominal_load": 1.0,
         "sample_average_arrivals": float(result["sample_arrivals"].mean()),
         "sample_final_backlog": int(result["sample"]["backlog"][-1]),
@@ -245,10 +272,14 @@ def plot_results(result: dict, directory: Path) -> None:
         fig.text(0.105, 0.909,
                  "Equal averages. Growing backlog." if fluctuating else "Regular arrivals. No backlog.",
                  size=25, weight="bold")
+        arrival_label = (
+            f"Uniform arrivals: {p['capacity'] - p['variation']}–{p['capacity'] + p['variation']} features/day."
+            if p["arrival_distribution"] == "uniform" else
+            f"Arrivals: {p['capacity'] - p['variation']} or {p['capacity'] + p['variation']} features/day (50% each)."
+        )
         fig.text(0.105, 0.865,
                  f"Fixed testing capacity: {p['capacity']} features/day. "
-                 + (f"Random arrivals: {p['capacity'] - p['variation']} or "
-                    f"{p['capacity'] + p['variation']} features/day, each with probability 50%."
+                 + (arrival_label
                     if fluctuating else f"Exactly {p['capacity']} features arrive every morning."),
                  size=11, color=muted)
         fig.text(0.105, 0.839,
@@ -316,8 +347,30 @@ def plot_results(result: dict, directory: Path) -> None:
 
 def live_payload(result: dict) -> dict:
     """Only Python computes the model. The browser replays the saved sample path."""
+    live_days = []
+    arrived_before = tested_before = 0
+    cost = result["parameters"]["feature_cost_cents"]
+    sample = result["sample"]
+    for day, arrivals in enumerate(result["sample_arrivals"]):
+        before = int(sample["backlog"][day])
+        after = int(sample["backlog"][day + 1])
+        tested = int(sample["completed"][day])
+        counts = [before, before + int(arrivals), after]
+        live_days.append({
+            "arrival_first": arrived_before + 1,
+            "arrivals": int(arrivals),
+            "queue_first": [tested_before + 1, tested_before + 1, tested_before + tested + 1],
+            "queue_counts": counts,
+            "queue_cost_cents": [count * cost for count in counts],
+            "tested_first": tested_before + 1,
+            "tested": tested,
+        })
+        arrived_before += int(arrivals)
+        tested_before += tested
     return {
         **result["parameters"],
+        "arrival_probabilities": result["arrival_probabilities"],
+        "live_days": live_days,
         "arrivals": result["sample_arrivals"].tolist(),
         "tested": result["sample"]["completed"].tolist(),
         "backlog": result["sample"]["backlog"].tolist(),
@@ -341,7 +394,9 @@ def main() -> None:
     parser.add_argument("--days", type=int, default=500, help="working days (default: 500)")
     parser.add_argument("--runs", type=int, default=10000, help="independent runs (default: 10000)")
     parser.add_argument("--capacity", type=int, default=10, help="fixed features/day (default: 10)")
-    parser.add_argument("--variation", type=int, default=2, help="arrivals = capacity +/- this number")
+    parser.add_argument("--variation", type=int, default=2, help="maximum deviation from mean arrivals")
+    parser.add_argument("--arrival-distribution", choices=("uniform", "two-point"),
+                        default="uniform", help="arrival law (default: uniform across the full integer range)")
     parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
     parser.add_argument("--feature-cost", default="1000",
                         help="fixed development cost per feature in euros (default: 1000)")
@@ -351,13 +406,15 @@ def main() -> None:
     args = parser.parse_args()
     try:
         result = run_experiment(args.days, args.runs, args.capacity, args.variation,
-                                args.seed, args.feature_cost)
+                                args.seed, args.feature_cost, args.arrival_distribution)
     except ValueError as error:
         parser.error(str(error))
     write_results(result, args.output_dir / "results")
     plot_results(result, args.output_dir / "figures")
     live_path = write_live_view(result, args.output_dir / "figures")
     print(f"Fixed capacity: {args.capacity} features/day; expected arrivals: {args.capacity} features/day")
+    print("Arrival probabilities: " + ", ".join(
+        f"{count}: {chance:.1%}" for count, chance in result["arrival_probabilities"].items()))
     print(f"Actual ensemble arrival average: {result['ensemble_arrivals_per_day']:.5f} features/day")
     print(f"Day {args.days}: simulation mean backlog = {result['mean'][-1]:.3f} features")
     print(f"Day {args.days}: exact expected backlog = {result['exact_mean'][-1]:.3f} features")
