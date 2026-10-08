@@ -1,0 +1,36 @@
+{
+  "experiment": "02_fluctuating_capacities",
+  "parameters": {
+    "days": 500,
+    "runs": 10000,
+    "development_mean": 10,
+    "development_std": 2,
+    "testing_mean": 10,
+    "testing_std": 2,
+    "seed": 42,
+    "feature_cost_cents": 100000,
+    "currency": "EUR"
+  },
+  "count_rule": "max(0, floor(mean + std * Z + 0.5)), independent standard normal Z",
+  "effective_distributions": {
+    "development_law": {
+      "mean": 10.000000080724607,
+      "std": 2.020725520283547,
+      "negative_probability": 2.866515718791946e-07
+    },
+    "testing_law": {
+      "mean": 10.000000080724607,
+      "std": 2.020725520283547,
+      "negative_probability": 2.866515718791946e-07
+    }
+  },
+  "sample_final_backlog": 5,
+  "sample_final_bound_cost_eur": 5000.0,
+  "sample_mean_completed_wait_days": 2.101316314319904,
+  "final_ensemble_mean_backlog": 49.6908,
+  "final_ensemble_mean_standard_error": 0.38797955145759144,
+  "ensemble_arrivals_per_day": 10.001009,
+  "ensemble_capacity_per_day": 10.0000896,
+  "money_definition": "Already-paid development spend of waiting features, not revenue or cash recovered.",
+  "wait_definition": "Completion day minus arrival day in working-day steps; same-day completion is zero. Unfinished features are excluded from completed-feature averages."
+}

@@ -1,0 +1,37 @@
+:root {
+  color-scheme: light dark;
+  --background: light-dark(#fafbf8,#141b17);
+  --foreground: light-dark(#253324,#e5eae0);
+  --muted-foreground: light-dark(#576451,#adb8a4);
+  --border: light-dark(#cad2c4,#46513f);
+  --primary: light-dark(#293b28,#dee6d6);
+  --primary-foreground: light-dark(#f6f9f1,#1c291c);
+  --input: var(--border);
+  --destructive: light-dark(#ab2727,#ffaaaa);
+  --viz-series-1: light-dark(#637a46,#a2c279);
+  --viz-series-2: light-dark(#527e99,#8cbbd5);
+  --viz-series-3: light-dark(#94722f,#d7b575);
+  --font-size-base: 14px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; background: var(--background); color: var(--foreground); font: 400 var(--font-size-base)/1.5 system-ui,sans-serif; }
+body > main { max-width: 1000px; margin: auto; }
+h2 { font-size: 20px; font-weight: 500; margin: 0; }
+h3 { font-size: 16px; font-weight: 500; margin: 0; }
+.text-small { font-size: 12px; }
+.text-muted { color: var(--muted-foreground); }
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.viz-row, .viz-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.btn, .form-control, .form-select { font: inherit; color: var(--foreground); background: var(--background); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; min-height: 36px; }
+.btn { cursor: pointer; }
+.btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+.btn:disabled { opacity: .5; cursor: default; }
+.form-label { display: block; }
+.form-control { display: block; width: 100%; margin-top: 4px; }
+.form-select { max-width: 100%; }
+.form-range { width: 100%; min-height: 30px; accent-color: var(--viz-series-1); }
+.text-destructive { color: var(--destructive); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+[hidden] { display: none !important; }
+@media (max-width: 580px) { body { padding: 16px; } }
+@media (pointer: coarse) { .btn, .form-control, .form-select { min-height: 44px; } .form-control, .form-select { font-size: 16px; } }

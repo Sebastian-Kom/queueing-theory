@@ -1,0 +1,256 @@
+<main id="capacity-queue-player">
+  <style>
+    #capacity-queue-player { color:var(--foreground); --tile-width:32px; }
+    #capacity-queue-player * { box-sizing:border-box; }
+    #capacity-queue-player .heading { padding-right:90px; margin-bottom:16px; }
+    #capacity-queue-player .parameters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+    #capacity-queue-player .fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:8px 0; }
+    #capacity-queue-player .distribution svg { display:block; width:100%; height:100px; }
+    #capacity-queue-player .distribution-summary { min-height:36px; }
+    #capacity-queue-player .configure { margin:8px 0 16px; }
+    #capacity-queue-player .position-row { justify-content:space-between; margin:14px 0; }
+    #capacity-queue-player .flow { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr); gap:20px; }
+    #capacity-queue-player .stage { min-width:0; }
+    #capacity-queue-player .stage-heading { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-weight:500; }
+    #capacity-queue-player .stage-note { min-height:36px; margin-top:4px; }
+    #capacity-queue-player .tiles { display:flex; flex-wrap:wrap; align-content:flex-start; gap:4px; min-height:110px; margin:8px 0; }
+    #capacity-queue-player .tile { width:var(--tile-width); height:26px; flex:0 0 var(--tile-width); display:flex; align-items:center; justify-content:center; color:var(--foreground); background:color-mix(in srgb,var(--viz-series-1) 22%,transparent); }
+    #capacity-queue-player [data-stage="incoming"] .tile { background:color-mix(in srgb,var(--viz-series-2) 22%,transparent); }
+    #capacity-queue-player [data-stage="outgoing"] .tile { background:color-mix(in srgb,var(--viz-series-3) 22%,transparent); }
+    #capacity-queue-player .metrics { margin:14px 0; display:flex; flex-wrap:wrap; gap:12px 24px; }
+    #capacity-queue-player .playback { margin:12px 0; }
+    #capacity-queue-player .timeline { margin:12px 0; }
+    #capacity-queue-player .history svg { display:block; width:100%; height:230px; }
+    #capacity-queue-player .chart text { fill:var(--foreground); font:400 12px system-ui,sans-serif; }
+    #capacity-queue-player .chart .frame { fill:none; stroke:var(--border); stroke-width:1; }
+    #capacity-queue-player .chart .grid { stroke:var(--border); stroke-width:.6; }
+    #capacity-queue-player .chart .line { fill:none; stroke:var(--viz-series-1); stroke-width:2; stroke-linejoin:round; }
+    #capacity-queue-player .chart .area { fill:var(--viz-series-1); opacity:.12; }
+    #capacity-queue-player .chart .point { fill:var(--viz-series-1); }
+    #capacity-queue-player .run-summary { margin-top:4px; }
+    @media (max-width:580px) {
+      #capacity-queue-player .parameters, #capacity-queue-player .flow { grid-template-columns:minmax(0,1fr); gap:16px; }
+      #capacity-queue-player .tiles { min-height:30px; }
+      #capacity-queue-player .stage-note { min-height:0; }
+      #capacity-queue-player .distribution-summary { min-height:0; }
+    }
+  </style>
+  <div class="heading"><h2>Development → testing</h2><span class="text-small text-muted" data-role="run-label"></span></div>
+  <form data-role="settings" novalidate>
+    <div class="parameters">
+      <section aria-labelledby="cq-development"><h3 id="cq-development">Development capacity</h3>
+        <div class="fields">
+          <label class="form-label">Mean (features/day)<input class="form-control" data-role="development-mean" aria-label="Development mean" type="number" min="0" max="1000" step="any" required></label>
+          <label class="form-label">Standard deviation<input class="form-control" data-role="development-std" aria-label="Development standard deviation" type="number" min="0" max="1000" step="any" required></label>
+        </div>
+        <div class="distribution" data-role="development-distribution"><svg class="chart" role="img" aria-label="Development count distribution"></svg></div>
+        <div class="text-small text-muted distribution-summary" data-role="development-effective"></div>
+      </section>
+      <section aria-labelledby="cq-testing"><h3 id="cq-testing">Testing capacity</h3>
+        <div class="fields">
+          <label class="form-label">Mean (features/day)<input class="form-control" data-role="testing-mean" aria-label="Testing mean" type="number" min="0" max="1000" step="any" required></label>
+          <label class="form-label">Standard deviation<input class="form-control" data-role="testing-std" aria-label="Testing standard deviation" type="number" min="0" max="1000" step="any" required></label>
+        </div>
+        <div class="distribution" data-role="testing-distribution"><svg class="chart" role="img" aria-label="Testing count distribution"></svg></div>
+        <div class="text-small text-muted distribution-summary" data-role="testing-effective"></div>
+      </section>
+    </div>
+    <div class="viz-controls configure"><button type="submit" class="btn" data-role="apply">Apply &amp; restart</button><span class="text-small text-muted" data-role="settings-status">Same random draws for each comparison</span></div>
+    <div class="text-small text-destructive" role="alert" data-role="error" hidden></div>
+  </form>
+  <div class="viz-row position-row"><h3 class="tabular-nums" data-role="position"></h3><span class="text-small tabular-nums" data-role="capacity"></span></div>
+  <div class="flow">
+    <section class="stage" data-stage="incoming" aria-label="Newly developed features">
+      <div class="stage-heading"><span>New today</span><span class="tabular-nums" data-role="incoming-count"></span></div>
+      <div class="stage-note text-small text-muted" data-role="incoming-note"></div>
+      <div class="tiles" data-role="incoming" role="img"></div><div class="text-small text-muted" data-role="incoming-overflow" hidden></div>
+    </section>
+    <section class="stage" data-stage="waiting" aria-label="Features waiting for testing">
+      <div class="stage-heading"><span>Testing queue</span><span class="tabular-nums" data-role="waiting-count"></span></div>
+      <div class="stage-note text-small text-muted" data-role="waiting-note"></div>
+      <div class="tiles" data-role="waiting" role="img"></div><div class="text-small text-muted" data-role="waiting-overflow" hidden></div>
+    </section>
+    <section class="stage" data-stage="outgoing" aria-label="Features tested today">
+      <div class="stage-heading"><span>Tested today</span><span class="tabular-nums" data-role="outgoing-count"></span></div>
+      <div class="stage-note text-small text-muted" data-role="outgoing-note"></div>
+      <div class="tiles" data-role="outgoing" role="img"></div><div class="text-small text-muted" data-role="outgoing-overflow" hidden></div>
+    </section>
+  </div>
+  <div class="metrics text-small">
+    <span>Development spend waiting <strong class="tabular-nums" data-role="money"></strong></span>
+    <span>Oldest waiting <strong class="tabular-nums" data-role="oldest"></strong></span>
+    <span>Mean wait · completed so far <strong class="tabular-nums" data-role="mean-wait"></strong></span>
+  </div>
+  <div class="viz-controls playback">
+    <button class="btn btn-primary" type="button" data-role="play">Play</button>
+    <button class="btn" type="button" data-role="step">Arrivals join queue</button>
+    <label class="form-label">Playback <select class="form-select" data-role="speed"><option value="1500">Slow</option><option value="600" selected>Medium</option><option value="60">Fast</option></select></label>
+  </div>
+  <div class="timeline"><div class="viz-row position-row text-small"><label for="cq-day">Jump to start of working day</label><span class="tabular-nums" data-role="day-label"></span></div><input class="form-range" id="cq-day" data-role="day" type="range" min="1" step="1" value="1"></div>
+  <div class="history"><div class="viz-row position-row"><h3>End-of-day queue history</h3><span class="text-small tabular-nums" data-role="history-value"></span></div><div data-role="history-chart"><svg class="chart" role="img" aria-label="End-of-day queue length over completed working days"></svg></div></div>
+  <div class="text-small text-muted run-summary" data-role="observed"></div>
+  <div class="text-small text-muted" data-role="cost-label"></div>
+  <div class="sr-only" data-role="announcement" aria-live="polite"></div>
+  <script type="application/json" data-role="model-data">__QUEUE_DATA__</script>
+  <script>
+  (() => {
+    __MODEL_JS__
+    const root = document.getElementById('capacity-queue-player');
+    const el = role => root.querySelector('[data-role="'+role+'"]');
+    const source = JSON.parse(el('model-data').textContent);
+    const roles = ['development-mean','development-std','testing-mean','testing-std'];
+    const phases = ['Start of day','Arrivals joined','Testing complete'];
+    const nodes = new Map(), maxTiles = 36;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const number = n => Number(n).toLocaleString('en-IE');
+    const money = cents => new Intl.NumberFormat('en-IE',{style:'currency',currency:source.currency,maximumFractionDigits:2}).format(cents/100);
+    const waitLabel = value => value === null ? '—' : Number(value.toFixed(2))+' days';
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const lastStep = source.days*3-1;
+    let parameters, data, devLaw, testLaw, step=0, timer=null, dirty=false;
+    el('day').max = source.days;
+    roles.forEach(role => {el(role).value=source[role.replace('-','_')];});
+    el('run-label').textContent = 'Gaussian capacities · One run · '+source.days+' days · Seed '+source.seed;
+    el('cost-label').textContent = 'One tile = one feature · '+money(source.feature_cost_cents)+' development cost · Same-day completion = 0 days waiting';
+    function svgNode(svg, tag, attrs={}, text) {
+      const node=document.createElementNS(SVG_NS,tag);
+      Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,value));
+      if (text!==undefined) node.textContent=text;
+      svg.append(node); return node;
+    }
+    function distribution(role, law, color) {
+      const host=el(role+'-distribution'), svg=host.querySelector('svg');
+      const width=Math.max(260,host.getBoundingClientRect().width), height=100;
+      const left=64, right=width-12, top=22, bottom=66;
+      const maxCount=Math.max(1,Math.ceil(Math.max(devLaw.mean+4*devLaw.std,testLaw.mean+4*testLaw.std)));
+      const maxP=Math.max(...devLaw.probabilities,...testLaw.probabilities)*1.06;
+      const binSize=Math.max(1,Math.ceil((maxCount+1)/Math.max(12,(right-left)/4)));
+      svg.replaceChildren(); svg.setAttribute('viewBox','0 0 '+width+' '+height);
+      svgNode(svg,'title',{},role+' capacity count distribution after rounding and clamping');
+      svgNode(svg,'rect',{x:left,y:top,width:right-left,height:bottom-top,class:'frame','data-chart-frame':''});
+      const x=k=>left+2+(right-left-4)*k/(maxCount+1);
+      for(let start=0;start<=maxCount;start+=binSize) {
+        let sum=0, bins=0;
+        law.counts.forEach((k,i)=>{if(k>=start && k<start+binSize) {sum+=law.probabilities[i];bins++;}});
+        const p=sum/binSize;
+        if (!p) continue;
+        const h=(bottom-top-4)*p/maxP;
+        const mark=svgNode(svg,'rect',{x:x(start),y:bottom-2-h,width:Math.max(.5,x(Math.min(maxCount+1,start+binSize))-x(start)-1),height:h,fill:'var('+color+')'});
+        svgNode(mark,'title',{},start+(binSize>1?'–'+(start+binSize-1):'')+' features: '+(sum*100).toFixed(2)+'%');
+      }
+      svgNode(svg,'text',{x:left,y:14,class:'axis-title','data-axis':'y'},'Probability / count');
+      svgNode(svg,'text',{x:left-7,y:top+8,'text-anchor':'end'},(maxP*100).toFixed(maxP<.02?1:0)+'%');
+      svgNode(svg,'text',{x:left-7,y:bottom,'text-anchor':'end'},'0');
+      for(const value of [...new Set([0,Math.round(maxCount/2),maxCount])]) svgNode(svg,'text',{x:x(value),y:82,'text-anchor':value===0?'start':value===maxCount?'end':'middle'},number(value));
+      svgNode(svg,'text',{x:(left+right)/2,y:99,'text-anchor':'middle',class:'axis-title','data-axis':'x'},'Capacity (features/day)');
+    }
+    function drawDistributions() {
+      distribution('development',devLaw,'--viz-series-2');
+      distribution('testing',testLaw,'--viz-series-3');
+    }
+    function drawHistory() {
+      if (!data) return;
+      const through=Math.floor(step/3)+(step%3===2?1:0), host=el('history-chart'), svg=host.querySelector('svg');
+      const width=Math.max(280,host.getBoundingClientRect().width),height=230,left=64,right=width-16,top=26,bottom=185;
+      const max=data.backlog.reduce((a,b)=>Math.max(a,b),0);
+      const raw=Math.max(1,max*1.08/4), magnitude=10**Math.floor(Math.log10(raw));
+      const tick=Math.max(1,[1,2,5,10].find(v=>v*magnitude>=raw)*magnitude), yMax=tick*Math.max(1,Math.ceil(max*1.08/tick));
+      const x=d=>left+4+(right-left-8)*d/source.days, y=q=>bottom-4-(bottom-top-8)*q/yMax;
+      svg.replaceChildren(); svg.setAttribute('viewBox','0 0 '+width+' '+height);
+      svgNode(svg,'title',{},'End-of-day queue through day '+through);
+      svgNode(svg,'desc',{},data.backlog[through]+' features remain. Future queue values are hidden.');
+      svgNode(svg,'rect',{x:left,y:top,width:right-left,height:bottom-top,class:'frame','data-chart-frame':''});
+      for(let q=0;q<=yMax;q+=tick) {
+        svgNode(svg,'line',{x1:left,x2:right,y1:y(q),y2:y(q),class:'grid'});
+        svgNode(svg,'text',{x:left-9,y:y(q)+4,'text-anchor':'end'},number(q));
+      }
+      for(const d of [...new Set([0,Math.round(source.days/3),Math.round(2*source.days/3),source.days])]) svgNode(svg,'text',{x:x(d),y:bottom+20,'text-anchor':d===0?'start':d===source.days?'end':'middle'},number(d));
+      svgNode(svg,'text',{x:left,y:15,class:'axis-title','data-axis':'y'},'Queue (features)');
+      svgNode(svg,'text',{x:(left+right)/2,y:height-4,'text-anchor':'middle',class:'axis-title','data-axis':'x'},'Working days');
+      let path='M '+x(0)+' '+y(0);
+      for(let d=1;d<=through;d++) path+=' H '+x(d)+' V '+y(data.backlog[d]);
+      svgNode(svg,'path',{d:path+' L '+x(through)+' '+y(0)+' L '+x(0)+' '+y(0)+' Z',class:'area'});
+      svgNode(svg,'path',{d:path,class:'line'});
+      svgNode(svg,'circle',{cx:x(through),cy:y(data.backlog[through]),r:3,class:'point'});
+      el('history-value').textContent='Day '+through+' · '+number(data.backlog[through])+' waiting';
+      if(through) {
+        const average=xs=>xs.slice(0,through).reduce((a,b)=>a+b,0)/through;
+        el('observed').textContent='Observed averages through day '+through+': development '+average(data.arrivals).toFixed(2)+' · testing capacity '+average(data.capacities).toFixed(2)+' · completed '+average(data.completed).toFixed(2)+' features/day';
+      } else el('observed').textContent='Observed daily averages appear after the first completed day';
+    }
+    function render(animate=false) {
+      const index=Math.floor(step/3), phase=step%3, day=data.live_days[index];
+      const oldPositions=new Map();
+      for(const [id,node] of nodes) {
+        if(node.isConnected) oldPositions.set(id,node.getBoundingClientRect());
+        node.getAnimations?.().forEach(a=>a.cancel());
+      }
+      const groups={incoming:{first:day.arrival_first,count:phase===0?day.arrivals:0},waiting:{first:day.queue_first[phase],count:day.queue_counts[phase]},outgoing:{first:day.tested_first,count:phase===2?day.tested:0}};
+      const visible=new Set();
+      Object.keys(groups).forEach(role=>el(role).replaceChildren());
+      for(const [role,group] of Object.entries(groups)) {
+        el(role).setAttribute('aria-label',group.count+' features '+role);
+        el(role+'-overflow').hidden=group.count<=maxTiles;
+        el(role+'-overflow').textContent=number(group.count-maxTiles)+' more features';
+        if(!group.count) {const empty=document.createElement('span');empty.className='text-small text-muted';empty.textContent=role==='incoming'?(phase===0?'No new features':'Joined the queue'):role==='waiting'?'Queue empty':phase===2?'None today':'None yet';el(role).append(empty);}
+        for(let offset=0;offset<Math.min(group.count,maxTiles);offset++) {
+          const id=group.first+offset;visible.add(id);
+          if(!nodes.has(id)) {const node=document.createElement('span');node.className='tile text-small tabular-nums';node.textContent=id;node.setAttribute('aria-hidden','true');nodes.set(id,node);}
+          el(role).append(nodes.get(id));
+        }
+      }
+      el('position').textContent='Day '+(index+1)+' / '+source.days+' · '+phases[phase];
+      el('capacity').textContent='Testing capacity today: '+number(day.capacity);
+      el('incoming-count').textContent=number(day.arrivals);
+      el('incoming-note').textContent=phase===0?'Before joining the queue':'Developed today: '+number(day.arrivals);
+      el('waiting-count').textContent=number(groups.waiting.count);
+      el('waiting-note').textContent=phase===1?'Carried '+number(day.queue_counts[0])+' + new '+number(day.arrivals):phase===2?'Carried into tomorrow':'Carried from yesterday';
+      el('outgoing-count').textContent=number(groups.outgoing.count);
+      el('outgoing-note').textContent=phase===2?'Ready to sell · '+number(day.unused)+' unused slots':'Ready to sell after testing';
+      el('money').textContent=money(day.queue_cost_cents[phase]);
+      el('oldest').textContent=waitLabel(day.oldest_wait[phase]);
+      el('mean-wait').textContent=waitLabel(data.mean_completed_wait[index+(phase===2?1:0)]);
+      el('day').value=index+1;el('day-label').textContent=(index+1)+' / '+source.days;
+      el('step').disabled=step===lastStep||dirty;el('play').disabled=dirty;
+      el('step').textContent=phase===0?'Arrivals join queue':phase===1?'Complete testing':'Next day';
+      if(timer===null) el('play').textContent=step===lastStep?'Replay':'Play';
+      if(animate&&!reduced.matches) for(const id of visible) {
+        const node=nodes.get(id), before=oldPositions.get(id);
+        if(!before||!node.animate) continue;
+        const after=node.getBoundingClientRect(),dx=before.left-after.left,dy=before.top-after.top;
+        if(dx||dy) node.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'translate(0,0)'}],{duration:Math.min(500,Number(el('speed').value)*.8),easing:'ease-in-out'});
+      }
+      for(const id of nodes.keys()) if(!visible.has(id)) nodes.delete(id);
+      drawHistory();
+    }
+    function announce() {el('announcement').textContent=el('position').textContent+'. '+el('waiting-count').textContent+' waiting. '+el('outgoing-count').textContent+' tested. '+el('money').textContent+' waiting development spend.';}
+    function pause(speak=false) {if(timer!==null) window.clearInterval(timer);timer=null;el('play').textContent=step===lastStep?'Replay':'Play';if(speak) announce();}
+    function advance() {step=Math.min(lastStep,step+1);render(true);if(step===lastStep) pause(true);}
+    function start() {if(dirty)return;if(step===lastStep){step=0;render();}timer=window.setInterval(advance,Number(el('speed').value));el('play').textContent='Pause';}
+    function apply() {
+      pause();
+      try {
+        const values=roles.map(role=>el(role).value.trim()===''?NaN:Number(el(role).value));
+        CapacityQueue.validate(values[0],values[1]); CapacityQueue.validate(values[2],values[3]);
+        const newData=CapacityQueue.simulate(CapacityQueue.counts(source.development_shocks,values[0],values[1]),CapacityQueue.counts(source.testing_shocks,values[2],values[3]),source.feature_cost_cents);
+        parameters=values;data=newData;devLaw=CapacityQueue.law(values[0],values[1]);testLaw=CapacityQueue.law(values[2],values[3]);
+        step=0;dirty=false;nodes.clear();
+        const maxId=data.arrivals.reduce((a,b)=>a+b,0);
+        root.style.setProperty('--tile-width',Math.max(28,String(maxId).length*7+10)+'px');
+        for(const [role,law] of [['development',devLaw],['testing',testLaw]]) el(role+'-effective').textContent='Rounded counts (minimum 0): mean '+law.mean.toFixed(3)+' · SD '+law.std.toFixed(3);
+        el('settings-status').textContent='Applied · same independent draws · restart to compare settings';
+        el('error').hidden=true;drawDistributions();render();announce();
+      } catch(error) {el('error').textContent=error.message;el('error').hidden=false;}
+    }
+    roles.forEach(role=>el(role).addEventListener('input',()=>{pause();dirty=true;el('play').disabled=true;el('step').disabled=true;el('settings-status').textContent='Changes pending · apply to restart this comparison';}));
+    el('settings').addEventListener('submit',event=>{event.preventDefault();apply();});
+    el('play').addEventListener('click',()=>timer===null?start():pause(true));
+    el('step').addEventListener('click',()=>{pause();advance();announce();});
+    el('speed').addEventListener('change',()=>{if(timer!==null){pause();start();}});
+    el('day').addEventListener('input',()=>{pause();step=(Number(el('day').value)-1)*3;render();announce();});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+    new ResizeObserver(()=>{if(data){drawDistributions();drawHistory();}}).observe(root);
+    apply();
+  })();
+  </script>
+</main>
