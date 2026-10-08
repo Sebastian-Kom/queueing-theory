@@ -7,6 +7,8 @@ on:
       - 'scripts/02_fluctuating_capacities.py'
       - 'templates/02_*'
       - 'requirements.txt'
+      - 'VERSION'
+      - 'releases/**'
       - 'tests/test_fluctuating_capacities.py'
       - 'tests/check_capacity_player.cjs'
       - '.github/workflows/pages.yml'
@@ -45,6 +47,7 @@ jobs:
         run: |
           mkdir -p _site
           cp outputs/pages/figures/02_live_queue.html _site/index.html
+          cp -R releases _site/releases
           touch _site/.nojekyll
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

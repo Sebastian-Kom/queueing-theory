@@ -10,6 +10,11 @@ and standard deviation of both departments directly in the live player.
 adjust both departments' capacities and run the simulation in your browser.
 Nothing to install.
 
+**Current release: [v0.1.0](https://github.com/Sebastian-Kom/queueing-theory/releases/tag/v0.1.0).**
+For articles and comparisons, use the [fixed v0.1.0 player](https://sebastian-kom.github.io/queueing-theory/releases/v0.1.0/).
+The release provides an offline ZIP, a standalone HTML download, checksums, and
+the tagged source code. The version is also displayed inside the player.
+
 For an immediate offline demo, download this repository and open
 [`figures/02_live_queue.html`](figures/02_live_queue.html) in your browser.
 No server, Python installation, or internet connection is needed to use this file.
@@ -176,12 +181,38 @@ See the [earlier model's documentation](docs/01_balanced_capacity.md).
 The workflow `.github/workflows/pages.yml` checks the models, regenerates the
 default player from its Python and template sources, and publishes it as the
 site's `index.html`. Changes to those sources on `main` publish automatically;
-the workflow can also be run manually from GitHub's Actions tab. Only the player
-is included in the deployment. It needs no server-side Python, login, or APIs.
+the workflow can also be run manually from GitHub's Actions tab. The current
+player and archived release players are included in the deployment. They need
+no server-side Python, login, or APIs. Archived files under `releases/vX.Y.Z/`
+are preserved so that an article's version-specific link continues to show
+the same player.
 
 For a fork, enable **Settings → Pages → Build and deployment → Source → GitHub
 Actions**, then run **Publish player to GitHub Pages**. Update the live link
 above to the fork's Pages address. No additional secret or access token is needed.
+
+## Releases and offline packages
+
+`VERSION` identifies the current model and player. The initial release is
+`0.1.0`: a usable first model that will continue to develop. Release notes are
+in [`docs/releases/v0.1.0.md`](docs/releases/v0.1.0.md).
+
+Build the offline assets with Python's standard library:
+
+```bash
+python scripts/package_release.py
+```
+
+The ZIP contains `index.html`, a quick-start README, `VERSION`, and a manifest
+with file hashes. Extract it and open `index.html` in any modern browser. The
+separate HTML asset works on its own. `SHA256SUMS.txt` verifies both downloads.
+
+For a new release, update `VERSION`, regenerate `figures/02_live_queue.html`,
+copy it to a **new** `releases/vX.Y.Z/index.html` directory, and add release
+notes. Never replace an existing release snapshot or move a published tag.
+Run the checks and packaging script, commit the files, and create a GitHub
+release tagged `vX.Y.Z` at that commit with the assets from `dist/`. GitHub
+also provides the source ZIP and tarball for the tag.
 
 ## Checks
 

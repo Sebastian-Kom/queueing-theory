@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 MAX_PARAMETER = 1000
 
 
@@ -178,7 +179,7 @@ def run_experiment(days: int = 500, runs: int = 10000, development_mean: float =
 
 
 def live_payload(result: dict) -> dict:
-    return {**result["parameters"], "development_shocks": result["development_shocks"],
+    return {"version": VERSION, **result["parameters"], "development_shocks": result["development_shocks"],
             "testing_shocks": result["testing_shocks"], "reference": result["sample"]}
 
 
@@ -186,14 +187,14 @@ def write_live_view(result: dict, directory: Path, fragment_path: Path | None = 
     directory.mkdir(parents=True, exist_ok=True)
     template = (ROOT / "templates" / "02_capacity_player.html").read_text()
     model_js = (ROOT / "templates" / "02_queue_model.js").read_text()
-    fragment = template.replace("__MODEL_JS__", model_js).replace(
+    fragment = template.replace("__VERSION__", VERSION).replace("__MODEL_JS__", model_js).replace(
         "__QUEUE_DATA__", json.dumps(live_payload(result), separators=(",", ":"), allow_nan=False))
     if fragment_path:
         fragment_path.write_text(fragment, encoding="utf-8")
     style = (ROOT / "templates" / "02_standalone.css").read_text()
     html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<title>Queueing Theory · Fluctuating capacities</title><style>' + style
+            f'<title>Queueing Theory v{VERSION} · Fluctuating capacities</title><style>' + style
             + '</style></head><body>' + fragment + '</body></html>')
     path = directory / "02_live_queue.html"
     path.write_text(html, encoding="utf-8")
