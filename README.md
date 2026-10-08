@@ -6,6 +6,10 @@ and standard deviation of both departments directly in the live player.
 
 ## Try the player
 
+**[Open the live player](https://sebastian-kom.github.io/queueing-theory/)** —
+adjust both departments' capacities and run the simulation in your browser.
+Nothing to install.
+
 For an immediate offline demo, download this repository and open
 [`figures/02_live_queue.html`](figures/02_live_queue.html) in your browser.
 No server, Python installation, or internet connection is needed to use this file.
@@ -166,6 +170,18 @@ Gaussian experiment output is labeled an exact expected backlog.
 8–12 arrivals, fixed testing capacity, and the optional original 8/12 coin toss.
 Its saved results and exact expected-backlog calculations remain reproducible.
 See the [earlier model's documentation](docs/01_balanced_capacity.md).
+
+## GitHub Pages
+
+The workflow `.github/workflows/pages.yml` checks the models, regenerates the
+default player from its Python and template sources, and publishes it as the
+site's `index.html`. Changes to those sources on `main` publish automatically;
+the workflow can also be run manually from GitHub's Actions tab. Only the player
+is included in the deployment. It needs no server-side Python, login, or APIs.
+
+For a fork, enable **Settings → Pages → Build and deployment → Source → GitHub
+Actions**, then run **Publish player to GitHub Pages**. Update the live link
+above to the fork's Pages address. No additional secret or access token is needed.
 
 ## Checks
 

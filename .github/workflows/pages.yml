@@ -1,0 +1,57 @@
+name: Publish player to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/02_fluctuating_capacities.py'
+      - 'templates/02_*'
+      - 'requirements.txt'
+      - 'tests/test_fluctuating_capacities.py'
+      - 'tests/check_capacity_player.cjs'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install simulation dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Check models
+        run: python -m unittest discover -s tests -v
+      - name: Generate the default interactive player
+        # The illustrative path is independent of the ensemble size.
+        run: python scripts/02_fluctuating_capacities.py --runs 2 --output-dir outputs/pages
+      - name: Check player controls and accounting
+        run: node tests/check_capacity_player.cjs outputs/pages/figures/02_live_queue.html
+      - name: Prepare the website
+        run: |
+          mkdir -p _site
+          cp outputs/pages/figures/02_live_queue.html _site/index.html
+          touch _site/.nojekyll
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload website
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
